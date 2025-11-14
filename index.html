@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Temporizador de Rondas</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .csp-notice {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(201, 75, 92, 0.9);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-size: 12px;
+            z-index: 100;
+            display: none;
+        }
+
+        .container {
+            display: flex;
+            height: 100vh;
+        }
+
+        .left-panel {
+            flex: 1;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .youtube-container {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            background: #000;
+        }
+
+        .youtube-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .video-error {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #fff;
+            padding: 30px;
+            background: rgba(0,0,0,0.8);
+            border-radius: 10px;
+            max-width: 400px;
+            z-index: 10;
+        }
+
+        .video-error h3 {
+            color: #c94b5c;
+            margin-bottom: 15px;
+        }
+
+        .video-error p {
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 15px;
+        }
+
+        .video-error button {
+            margin: 5px;
+            padding: 10px 20px;
+            background: #c94b5c;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        .video-error button:hover {
+            background: #b33a4a;
+        }
+
+        .video-placeholder {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+
+        .video-placeholder button {
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: #c94b5c;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .right-panel {
+            flex: 1;
+            background: linear-gradient(135deg, #d4c5b0 0%, #b8a890 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 40px;
+            position: relative;
+            background-size: cover;
+            background-position: center;
+        }
+
+        .logo-container {
+            margin-bottom: 30px;
+            width: 300px;
+            height: 100px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .logo-container:hover {
+            background: rgba(0, 0, 0, 0.4);
+        }
+
+        .logo-container img {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+        }
+
+        .logo-placeholder {
+            color: white;
+            font-size: 14px;
+            text-align: center;
+        }
+
+        .timer-display {
+            font-size: 120px;
+            font-weight: bold;
+            color: #000;
+            margin-bottom: 40px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .timer-display.editing {
+            outline: 3px solid #c94b5c;
+            padding: 10px 20px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        .controls {
+            display: flex;
+            gap: 20px;
+        }
+
+        button {
+            padding: 15px 40px;
+            font-size: 18px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: bold;
+            text-transform: uppercase;
+        }
+
+        .btn-start {
+            background: #c94b5c;
+            color: white;
+        }
+
+        .btn-start:hover {
+            background: #b33a4a;
+            transform: scale(1.05);
+        }
+
+        .btn-reset {
+            background: #d4a574;
+            color: white;
+        }
+
+        .btn-reset:hover {
+            background: #c09463;
+            transform: scale(1.05);
+        }
+
+        .settings-icon {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 24px;
+            cursor: pointer;
+            background: rgba(201, 75, 92, 0.8);
+            color: white;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s;
+        }
+
+        .settings-icon:hover {
+            background: rgba(201, 75, 92, 1);
+            transform: rotate(90deg);
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active {
+            display: flex;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        .modal-content h2 {
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .btn-save {
+            background: #4CAF50;
+            color: white;
+        }
+
+        .btn-cancel {
+            background: #999;
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                flex-direction: column;
+            }
+
+            .timer-display {
+                font-size: 80px;
+            }
+
+            .logo-container {
+                width: 200px;
+                height: 80px;
+            }
+
+            button {
+                padding: 12px 30px;
+                font-size: 16px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="left-panel">
+            <div class="youtube-container">
+                <iframe 
+                    id="youtubePlayer"
+                    src=""
+                    frameborder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowfullscreen
+                    referrerpolicy="strict-origin-when-cross-origin">
+                </iframe>
+                <div class="video-error" id="videoError" style="display: none;">
+                    <h3>⚠️ Video no disponible</h3>
+                    <p>El video no se puede reproducir porque el propietario ha restringido la reproducción embebida.</p>
+                    <p><strong>Soluciones:</strong></p>
+                    <p style="font-size: 12px;">
+                        • Usa un video o playlist diferente<br>
+                        • Abre el video en YouTube directamente<br>
+                        • Usa videos de canales que permitan embebido
+                    </p>
+                    <button onclick="openYouTubeDirectly()">Abrir en YouTube</button>
+                    <button onclick="hideError()">Cerrar</button>
+                </div>
+                <div class="csp-notice" id="cspNotice">
+                    Video actualizado correctamente
+                </div>
+            </div>
+        </div>
+
+        <div class="right-panel" id="rightPanel">
+            <div class="settings-icon" onclick="openSettings()">⚙</div>
+            
+            <div class="logo-container" onclick="document.getElementById('logoInput').click()">
+                <div class="logo-placeholder" id="logoPlaceholder">Click para agregar logo</div>
+                <img id="logoImage" style="display: none;">
+            </div>
+            <input type="file" id="logoInput" accept="image/*" style="display: none;" onchange="loadLogo(event)">
+
+            <div class="timer-display" id="timerDisplay" onclick="editTime()">35:00</div>
+
+            <div class="controls">
+                <button class="btn-start" id="startBtn" onclick="toggleTimer()">Iniciar</button>
+                <button class="btn-reset" onclick="resetTimer()">Reiniciar</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal" id="settingsModal">
+        <div class="modal-content">
+            <h2>Configuración</h2>
+            <div class="form-group">
+                <label>URL de YouTube (Video o Playlist)</label>
+                <input type="text" id="youtubeUrl" placeholder="https://youtube.com/watch?v=...">
+                <p style="font-size: 11px; color: #666; margin-top: 5px;">
+                    ⚠️ Nota: Algunos videos pueden estar restringidos por sus propietarios y no reproducirse embebidos
+                </p>
+            </div>
+            <div class="form-group">
+                <label>Imagen de Fondo (URL)</label>
+                <input type="text" id="backgroundUrl" placeholder="https://ejemplo.com/imagen.jpg">
+            </div>
+            <div class="form-group">
+                <label>O subir imagen de fondo</label>
+                <input type="file" id="backgroundInput" accept="image/*" onchange="loadBackground(event)">
+            </div>
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="closeSettings()">Cancelar</button>
+                <button class="btn-save" onclick="saveSettings()">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let time = 35 * 60; // 35 minutos en segundos
+        let originalTime = 35 * 60;
+        let timerInterval = null;
+        let isRunning = false;
+        let currentYoutubeUrl = '';
+
+        function formatTime(seconds) {
+            const mins = Math.floor(seconds / 60);
+            const secs = seconds % 60;
+            return `${mins}:${secs.toString().padStart(2, '0')}`;
+        }
+
+        function updateDisplay() {
+            document.getElementById('timerDisplay').textContent = formatTime(time);
+        }
+
+        function toggleTimer() {
+            const btn = document.getElementById('startBtn');
+            
+            if (isRunning) {
+                // Pausar
+                clearInterval(timerInterval);
+                btn.textContent = 'Iniciar';
+                isRunning = false;
+            } else {
+                // Iniciar
+                timerInterval = setInterval(() => {
+                    if (time > 0) {
+                        time--;
+                        updateDisplay();
+                    } else {
+                        clearInterval(timerInterval);
+                        btn.textContent = 'Iniciar';
+                        isRunning = false;
+                        // Sonido o alerta cuando termina
+                        alert('¡Tiempo terminado!');
+                    }
+                }, 1000);
+                btn.textContent = 'Pausar';
+                isRunning = true;
+            }
+        }
+
+        function resetTimer() {
+            clearInterval(timerInterval);
+            time = originalTime;
+            updateDisplay();
+            document.getElementById('startBtn').textContent = 'Iniciar';
+            isRunning = false;
+        }
+
+        function editTime() {
+            if (isRunning) return; // No permitir editar mientras corre
+            
+            const display = document.getElementById('timerDisplay');
+            display.classList.add('editing');
+            
+            const [mins, secs] = display.textContent.split(':');
+            const input = prompt('Ingresa el tiempo (minutos:segundos)', `${mins}:${secs}`);
+            
+            if (input) {
+                const [newMins, newSecs] = input.split(':').map(Number);
+                if (!isNaN(newMins) && !isNaN(newSecs)) {
+                    time = newMins * 60 + newSecs;
+                    originalTime = time;
+                    updateDisplay();
+                }
+            }
+            
+            display.classList.remove('editing');
+        }
+
+        function loadLogo(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = document.getElementById('logoImage');
+                    img.src = e.target.result;
+                    img.style.display = 'block';
+                    document.getElementById('logoPlaceholder').style.display = 'none';
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        function openSettings() {
+            document.getElementById('settingsModal').classList.add('active');
+        }
+
+        function closeSettings() {
+            document.getElementById('settingsModal').classList.remove('active');
+        }
+
+        function openYouTubeDirectly() {
+            if (currentYoutubeUrl) {
+                window.open(currentYoutubeUrl, '_blank');
+            }
+        }
+
+        function hideError() {
+            document.getElementById('videoError').style.display = 'none';
+        }
+
+        function showVideoError() {
+            document.getElementById('videoError').style.display = 'block';
+        }
+
+        function saveSettings() {
+            const youtubeUrl = document.getElementById('youtubeUrl').value;
+            const backgroundUrl = document.getElementById('backgroundUrl').value;
+            
+            if (youtubeUrl) {
+                currentYoutubeUrl = youtubeUrl;
+                let embedUrl = '';
+                
+                // Convertir URL de YouTube a formato embed con nocookie para mejor compatibilidad
+                if (youtubeUrl.includes('youtube.com/watch')) {
+                    const videoId = youtubeUrl.split('v=')[1]?.split('&')[0];
+                    const listId = youtubeUrl.includes('list=') ? youtubeUrl.split('list=')[1]?.split('&')[0] : null;
+                    
+                    if (listId) {
+                        embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?list=${listId}&rel=0&modestbranding=1`;
+                    } else {
+                        embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1`;
+                    }
+                } else if (youtubeUrl.includes('youtube.com/playlist') || youtubeUrl.includes('list=')) {
+                    const listId = youtubeUrl.split('list=')[1]?.split('&')[0];
+                    embedUrl = `https://www.youtube-nocookie.com/embed/videoseries?list=${listId}&rel=0&modestbranding=1`;
+                } else if (youtubeUrl.includes('youtu.be/')) {
+                    const videoId = youtubeUrl.split('youtu.be/')[1]?.split('?')[0];
+                    embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1`;
+                } else if (youtubeUrl.includes('youtube.com/embed/')) {
+                    // Ya es una URL de embed
+                    embedUrl = youtubeUrl.replace('youtube.com', 'youtube-nocookie.com');
+                    if (!embedUrl.includes('?')) {
+                        embedUrl += '?rel=0&modestbranding=1';
+                    }
+                }
+                
+                if (embedUrl) {
+                    document.getElementById('youtubePlayer').src = embedUrl;
+                    document.getElementById('videoError').style.display = 'none';
+                    
+                    // Mostrar aviso temporal
+                    const notice = document.getElementById('cspNotice');
+                    notice.style.display = 'block';
+                    setTimeout(() => {
+                        notice.style.display = 'none';
+                    }, 2000);
+                }
+            }
+            
+            if (backgroundUrl) {
+                document.getElementById('rightPanel').style.backgroundImage = `url(${backgroundUrl})`;
+            }
+            
+            closeSettings();
+        }
+
+        function loadBackground(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('rightPanel').style.backgroundImage = `url(${e.target.result})`;
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+    </script>
+</body>
+</html>
