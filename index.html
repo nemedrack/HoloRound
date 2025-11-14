@@ -707,27 +707,36 @@
                 currentYoutubeUrl = youtubeUrl;
                 let embedUrl = '';
                 
-                // Convertir URL de YouTube a formato embed con nocookie para mejor compatibilidad
                 if (youtubeUrl.includes('youtube.com/watch')) {
                     const videoId = youtubeUrl.split('v=')[1]?.split('&')[0];
                     const listId = youtubeUrl.includes('list=') ? youtubeUrl.split('list=')[1]?.split('&')[0] : null;
                     
                     if (listId) {
-                        embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?list=${listId}&rel=0&modestbranding=1`;
-                    } else {
-                        embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1`;
+                        embedUrl = `https://www.youtube-nocookie.com/embed/videoseries?list=${listId}&rel=0&modestbranding=1&shuffle=1&autoplay=1`;
+                    } else if (videoId) {
+                        embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&autoplay=1`;
                     }
                 } else if (youtubeUrl.includes('youtube.com/playlist') || youtubeUrl.includes('list=')) {
                     const listId = youtubeUrl.split('list=')[1]?.split('&')[0];
-                    embedUrl = `https://www.youtube-nocookie.com/embed/videoseries?list=${listId}&rel=0&modestbranding=1`;
+                    if (listId) {
+                        embedUrl = `https://www.youtube-nocookie.com/embed/videoseries?list=${listId}&rel=0&modestbranding=1&shuffle=1&autoplay=1`;
+                    }
                 } else if (youtubeUrl.includes('youtu.be/')) {
                     const videoId = youtubeUrl.split('youtu.be/')[1]?.split('?')[0];
-                    embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1`;
+                    if (videoId) {
+                        embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&autoplay=1`;
+                    }
                 } else if (youtubeUrl.includes('youtube.com/embed/')) {
-                    // Ya es una URL de embed
                     embedUrl = youtubeUrl.replace('youtube.com', 'youtube-nocookie.com');
-                    if (!embedUrl.includes('?')) {
-                        embedUrl += '?rel=0&modestbranding=1';
+                    if (embedUrl.includes('list=')) {
+                        const listId = embedUrl.split('list=')[1]?.split('&')[0];
+                        if (listId) {
+                            embedUrl = `https://www.youtube-nocookie.com/embed/videoseries?list=${listId}&rel=0&modestbranding=1&shuffle=1&autoplay=1`;
+                        }
+                    } else if (!embedUrl.includes('?')) {
+                        embedUrl += '?rel=0&modestbranding=1&autoplay=1';
+                    } else if (!embedUrl.includes('autoplay=')) {
+                        embedUrl += '&autoplay=1';
                     }
                 }
                 
