@@ -762,6 +762,8 @@
         function saveSettings() {
             const youtubeUrl = document.getElementById('youtubeUrl').value;
             const backgroundUrl = document.getElementById('backgroundUrl').value;
+            randomPlayback = document.getElementById('randomPlaylist').checked;
+            const showControls = document.getElementById('showVideoControls').checked;
             
             if (youtubeUrl) {
                 currentYoutubeUrl = youtubeUrl;
