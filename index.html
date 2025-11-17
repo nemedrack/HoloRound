@@ -430,6 +430,10 @@
                     allowfullscreen
                     referrerpolicy="strict-origin-when-cross-origin">
                 </iframe>
+                <div class="video-controls" id="videoControls" style="display: none;">
+                    <button onclick="loadRandomVideo()">🔀 Video Aleatorio</button>
+                    <button onclick="nextVideo()">⏭️ Siguiente</button>
+                </div>
                 <div class="video-error" id="videoError" style="display: none;">
                     <h3>Video no disponible</h3>
                     <p>El video no se puede reproducir porque el propietario ha restringido la reproducción embebida.</p>
@@ -478,6 +482,14 @@
                     Nota: Algunos videos pueden estar restringidos por sus propietarios y no reproducirse embebidos
                 </p>
             </div>
+            <div class="form-group-checkbox">
+                <input type="checkbox" id="randomPlaylist" checked>
+                <label for="randomPlaylist" style="margin: 0;">Reproducción aleatoria de playlist</label>
+            </div>
+            <div class="form-group-checkbox">
+                <input type="checkbox" id="showVideoControls" checked>
+                <label for="showVideoControls" style="margin: 0;">Mostrar controles de video</label>
+            </div>
             <div class="form-group">
                 <label>Imagen de Fondo (URL)</label>
                 <input type="text" id="backgroundUrl" placeholder="https://ejemplo.com/imagen.jpg">
@@ -511,8 +523,13 @@
         let lastCallAt = null; 
         let lastCallTriggered = false;
 
+        let playlistId = null;
+        let playlistVideos = [];
+        let currentVideoIndex = 0;
+        let randomPlayback = true;
+
         //Imagen de carga inicial
-        const DEFAULT_BG_URL = "https://i.imgur.com/4E8Gn0K.png";
+        const DEFAULT_BG_URL = "https://i.imgur.com/9hEct8V.png";
 
         document.addEventListener('DOMContentLoaded', function () {
             const rightPanel = document.getElementById('rightPanel');
@@ -699,6 +716,49 @@
             document.getElementById('videoError').style.display = 'block';
         }
 
+        function extractPlaylistId(url) {
+            const match = url.match(/[?&]list=([^&]+)/);
+            return match ? match[1] : null;
+        }
+
+        function loadRandomVideo() {
+            if (!playlistId) {
+                alert('No hay una playlist cargada');
+                return;
+            }
+
+            // Generar índice aleatorio
+            const randomIndex = Math.floor(Math.random() * 50); // YouTube permite hasta 50 videos en embed
+            
+            const embedUrl = `https://www.youtube-nocookie.com/embed/videoseries?list=${playlistId}&index=${randomIndex + 1}&rel=0&modestbranding=1&autoplay=1`;
+            document.getElementById('youtubePlayer').src = embedUrl;
+            
+            showNotice('Cargando video aleatorio...');
+        }
+
+        function nextVideo() {
+            if (!playlistId) {
+                alert('No hay una playlist cargada');
+                return;
+            }
+
+            currentVideoIndex++;
+            const embedUrl = `https://www.youtube-nocookie.com/embed/videoseries?list=${playlistId}&index=${currentVideoIndex + 1}&rel=0&modestbranding=1&autoplay=1`;
+            document.getElementById('youtubePlayer').src = embedUrl;
+            
+            showNotice('Siguiente video...');
+        }
+
+        function showNotice(message) {
+            const notice = document.getElementById('cspNotice');
+            notice.textContent = message;
+            notice.style.display = 'block';
+            setTimeout(() => {
+                notice.style.display = 'none';
+            }, 2000);
+        }
+
+
         function saveSettings() {
             const youtubeUrl = document.getElementById('youtubeUrl').value;
             const backgroundUrl = document.getElementById('backgroundUrl').value;
@@ -707,49 +767,52 @@
                 currentYoutubeUrl = youtubeUrl;
                 let embedUrl = '';
                 
-                if (youtubeUrl.includes('youtube.com/watch')) {
-                    const videoId = youtubeUrl.split('v=')[1]?.split('&')[0];
-                    const listId = youtubeUrl.includes('list=') ? youtubeUrl.split('list=')[1]?.split('&')[0] : null;
+                // Detectar si es una playlist
+                const listId = extractPlaylistId(youtubeUrl);
+                
+                if (listId) {
+                    // Es una playlist
+                    playlistId = listId;
+                    currentVideoIndex = 0;
                     
-                    if (listId) {
-                        embedUrl = `https://www.youtube-nocookie.com/embed/videoseries?list=${listId}&rel=0&modestbranding=1&shuffle=1&autoplay=1`;
-                    } else if (videoId) {
-                        embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&autoplay=1`;
+                    if (randomPlayback) {
+                        // Cargar video aleatorio
+                        const randomIndex = Math.floor(Math.random() * 50);
+                        embedUrl = `https://www.youtube-nocookie.com/embed/videoseries?list=${listId}&index=${randomIndex + 1}&rel=0&modestbranding=1&autoplay=1`;
+                    } else {
+                        // Cargar desde el inicio
+                        embedUrl = `https://www.youtube-nocookie.com/embed/videoseries?list=${listId}&rel=0&modestbranding=1&autoplay=1`;
                     }
-                } else if (youtubeUrl.includes('youtube.com/playlist') || youtubeUrl.includes('list=')) {
-                    const listId = youtubeUrl.split('list=')[1]?.split('&')[0];
-                    if (listId) {
-                        embedUrl = `https://www.youtube-nocookie.com/embed/videoseries?list=${listId}&rel=0&modestbranding=1&shuffle=1&autoplay=1`;
-                    }
-                } else if (youtubeUrl.includes('youtu.be/')) {
-                    const videoId = youtubeUrl.split('youtu.be/')[1]?.split('?')[0];
-                    if (videoId) {
-                        embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&autoplay=1`;
-                    }
-                } else if (youtubeUrl.includes('youtube.com/embed/')) {
-                    embedUrl = youtubeUrl.replace('youtube.com', 'youtube-nocookie.com');
-                    if (embedUrl.includes('list=')) {
-                        const listId = embedUrl.split('list=')[1]?.split('&')[0];
-                        if (listId) {
-                            embedUrl = `https://www.youtube-nocookie.com/embed/videoseries?list=${listId}&rel=0&modestbranding=1&shuffle=1&autoplay=1`;
+                    
+                    // Mostrar controles de video
+                    document.getElementById('videoControls').style.display = showControls ? 'flex' : 'none';
+                } else {
+                    // Es un video individual
+                    playlistId = null;
+                    document.getElementById('videoControls').style.display = 'none';
+                    
+                    if (youtubeUrl.includes('youtube.com/watch')) {
+                        const videoId = youtubeUrl.split('v=')[1]?.split('&')[0];
+                        if (videoId) {
+                            embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&autoplay=1`;
                         }
-                    } else if (!embedUrl.includes('?')) {
-                        embedUrl += '?rel=0&modestbranding=1&autoplay=1';
-                    } else if (!embedUrl.includes('autoplay=')) {
-                        embedUrl += '&autoplay=1';
+                    } else if (youtubeUrl.includes('youtu.be/')) {
+                        const videoId = youtubeUrl.split('youtu.be/')[1]?.split('?')[0];
+                        if (videoId) {
+                            embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&autoplay=1`;
+                        }
+                    } else if (youtubeUrl.includes('youtube.com/embed/')) {
+                        embedUrl = youtubeUrl.replace('youtube.com', 'youtube-nocookie.com');
+                        if (!embedUrl.includes('?')) {
+                            embedUrl += '?rel=0&modestbranding=1&autoplay=1';
+                        }
                     }
                 }
                 
                 if (embedUrl) {
                     document.getElementById('youtubePlayer').src = embedUrl;
                     document.getElementById('videoError').style.display = 'none';
-                    
-                    // Mostrar aviso temporal
-                    const notice = document.getElementById('cspNotice');
-                    notice.style.display = 'block';
-                    setTimeout(() => {
-                        notice.style.display = 'none';
-                    }, 2000);
+                    showNotice('Video actualizado correctamente');
                 }
             }
             
