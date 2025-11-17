@@ -61,6 +61,32 @@
             border: none;
         }
 
+        .video-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            z-index: 100;
+        }
+
+        .video-controls button {
+            padding: 10px 20px;
+            background: rgba(201, 75, 92, 0.9);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+
+        .video-controls button:hover {
+            background: rgba(201, 75, 92, 1);
+            transform: scale(1.05);
+        }
+
         .video-error {
             position: absolute;
             top: 50%;
@@ -99,26 +125,6 @@
 
         .video-error button:hover {
             background: #b33a4a;
-        }
-
-        .video-placeholder {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            color: #666;
-            font-size: 14px;
-        }
-
-        .video-placeholder button {
-            margin-top: 15px;
-            padding: 10px 20px;
-            background: #c94b5c;
-            color: white;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
         }
 
         .right-panel {
@@ -239,8 +245,8 @@
             min-height: 18px;
         }
 
-        .last-call-active #timerDisplay {
-            background: rgba(192, 57, 43, 0.95);
+        .last-call-active .timer-display {
+            background: rgba(192, 57, 43, 0.95) !important;
             color: #ffffff;
             box-shadow: 0 0 25px rgba(192,57,43,0.9);
             animation: lastCallPulse 1s infinite;
@@ -260,7 +266,7 @@
 
         .timeup-modal {
             position: fixed;
-            inset: 0; /* top:0, right:0, bottom:0, left:0 */
+            inset: 0;
             background: rgba(0,0,0,0.8);
             display: none;
             align-items: center;
@@ -355,6 +361,8 @@
             border-radius: 15px;
             max-width: 500px;
             width: 90%;
+            max-height: 80vh;
+            overflow-y: auto;
         }
 
         .modal-content h2 {
@@ -379,6 +387,24 @@
             border: 2px solid #ddd;
             border-radius: 5px;
             font-size: 16px;
+        }
+
+        .form-group-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .form-group-checkbox input[type="checkbox"] {
+            width: auto;
+        }
+
+        .info-text {
+            font-size: 11px;
+            color: #666;
+            margin-top: 5px;
+            line-height: 1.4;
         }
 
         .modal-buttons {
@@ -415,6 +441,11 @@
                 padding: 12px 30px;
                 font-size: 16px;
             }
+
+            .video-controls {
+                flex-wrap: wrap;
+                width: 90%;
+            }
         }
     </style>
 </head>
@@ -435,7 +466,7 @@
                     <button onclick="nextVideo()">⏭️ Siguiente</button>
                 </div>
                 <div class="video-error" id="videoError" style="display: none;">
-                    <h3>Video no disponible</h3>
+                    <h3>⚠️ Video no disponible</h3>
                     <p>El video no se puede reproducir porque el propietario ha restringido la reproducción embebida.</p>
                     <p><strong>Soluciones:</strong></p>
                     <p style="font-size: 12px;">
@@ -456,7 +487,7 @@
             <div class="settings-icon" onclick="openSettings()">⚙</div>
             
             <div class="logo-container" onclick="document.getElementById('logoInput').click()">
-                <div class="logo-placeholder" id="logoPlaceholder">Imagina me pasan el logo</div>
+                <div class="logo-placeholder" id="logoPlaceholder">Click para agregar logo</div>
                 <img id="logoImage" style="display: none;">
             </div>
             <input type="file" id="logoInput" accept="image/*" style="display: none;" onchange="loadLogo(event)">
@@ -477,9 +508,9 @@
             <h2>Configuración</h2>
             <div class="form-group">
                 <label>URL de YouTube (Video o Playlist)</label>
-                <input type="text" id="youtubeUrl" placeholder="https://youtube.com/watch?v=...">
-                <p style="font-size: 11px; color: #666; margin-top: 5px;">
-                    Nota: Algunos videos pueden estar restringidos por sus propietarios y no reproducirse embebidos
+                <input type="text" id="youtubeUrl" placeholder="https://youtube.com/watch?v=... o https://youtube.com/playlist?list=...">
+                <p class="info-text">
+                    ⚠️ Nota: Algunos videos pueden estar restringidos por sus propietarios
                 </p>
             </div>
             <div class="form-group-checkbox">
@@ -514,7 +545,7 @@
     </div>
 
     <script>
-        let time = 35 * 60; // 35 minutos en segundos
+        let time = 35 * 60;
         let originalTime = 35 * 60;
         let timerInterval = null;
         let isRunning = false;
@@ -523,12 +554,12 @@
         let lastCallAt = null; 
         let lastCallTriggered = false;
 
+        // Variables para manejo de playlist
         let playlistId = null;
         let playlistVideos = [];
         let currentVideoIndex = 0;
         let randomPlayback = true;
 
-        //Imagen de carga inicial
         const DEFAULT_BG_URL = "https://i.imgur.com/9hEct8V.png";
 
         document.addEventListener('DOMContentLoaded', function () {
@@ -716,11 +747,13 @@
             document.getElementById('videoError').style.display = 'block';
         }
 
+        // Función para extraer el ID de la playlist
         function extractPlaylistId(url) {
             const match = url.match(/[?&]list=([^&]+)/);
             return match ? match[1] : null;
         }
 
+        // Función para cargar un video aleatorio de la playlist
         function loadRandomVideo() {
             if (!playlistId) {
                 alert('No hay una playlist cargada');
@@ -736,6 +769,7 @@
             showNotice('Cargando video aleatorio...');
         }
 
+        // Función para cargar el siguiente video
         function nextVideo() {
             if (!playlistId) {
                 alert('No hay una playlist cargada');
@@ -757,7 +791,6 @@
                 notice.style.display = 'none';
             }, 2000);
         }
-
 
         function saveSettings() {
             const youtubeUrl = document.getElementById('youtubeUrl').value;
