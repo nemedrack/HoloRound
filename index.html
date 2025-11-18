@@ -526,6 +526,10 @@
                 <label for="randomPlaylist" style="margin: 0;">Reproducción aleatoria de playlist (requiere API Key)</label>
             </div>
             <div class="form-group-checkbox">
+                <input type="checkbox" id="autoPlayNext" checked>
+                <label for="autoPlayNext" style="margin: 0;">Reproducir siguiente video automáticamente</label>
+            </div>
+            <div class="form-group-checkbox">
                 <input type="checkbox" id="showVideoControls" checked>
                 <label for="showVideoControls" style="margin: 0;">Mostrar controles de video</label>
             </div>
@@ -569,8 +573,22 @@
         let randomPlayback = true;
         let youtubeApiKey = '';
         let usedVideoIndices = [];
+        let autoPlayNext = true; // Reproducción automática continua
+        let player = null; // YouTube Player object
+        let playerReady = false;
 
         const DEFAULT_BG_URL = "https://i.imgur.com/9hEct8V.png";
+
+        // Cargar YouTube IFrame Player API
+        let tag = document.createElement('script');
+        tag.src = "https://www.youtube.com/iframe_api";
+        let firstScriptTag = document.getElementsByTagName('script')[0];
+        firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+        // Esta función es llamada automáticamente por la API de YouTube
+        window.onYouTubeIframeAPIReady = function() {
+            console.log('✅ YouTube IFrame API cargada');
+        };
 
         document.addEventListener('DOMContentLoaded', function () {
             const rightPanel = document.getElementById('rightPanel');
@@ -828,7 +846,7 @@
             // Reiniciar si ya se usaron todos los videos
             if (usedVideoIndices.length >= playlistVideos.length) {
                 usedVideoIndices = [];
-                showNotice('Reiniciando lista...');
+                showNotice('🔄 Reiniciando lista...');
             }
 
             // Seleccionar video aleatorio que no se haya usado
@@ -840,11 +858,16 @@
             usedVideoIndices.push(randomIndex);
             const video = playlistVideos[randomIndex];
             
-            const embedUrl = `https://www.youtube-nocookie.com/embed/${video.videoId}?rel=0&modestbranding=1&autoplay=1`;
-            document.getElementById('youtubePlayer').src = embedUrl;
-            
             showNotice(`🎵 ${video.title.substring(0, 50)}...`);
             console.log(`Reproduciendo: ${video.title}`);
+            
+            // Si el player ya existe, solo cambiar el video
+            if (player && playerReady) {
+                player.loadVideoById(video.videoId);
+            } else {
+                // Crear nuevo player
+                createYouTubePlayer(video.videoId);
+            }
         }
 
         // Función para cargar el siguiente video
@@ -866,11 +889,75 @@
             currentVideoIndex = (currentVideoIndex + 1) % playlistVideos.length;
             const video = playlistVideos[currentVideoIndex];
             
-            const embedUrl = `https://www.youtube-nocookie.com/embed/${video.videoId}?rel=0&modestbranding=1&autoplay=1`;
-            document.getElementById('youtubePlayer').src = embedUrl;
-            
             showNotice(`🎵 ${video.title.substring(0, 50)}...`);
             console.log(`Reproduciendo: ${video.title}`);
+            
+            // Si el player ya existe, solo cambiar el video
+            if (player && playerReady) {
+                player.loadVideoById(video.videoId);
+            } else {
+                // Crear nuevo player
+                createYouTubePlayer(video.videoId);
+            }
+        }
+
+        // Función para crear el reproductor de YouTube
+        function createYouTubePlayer(videoId) {
+            // Destruir player anterior si existe
+            if (player) {
+                player.destroy();
+            }
+
+            // Crear nuevo player usando la API
+            player = new YT.Player('youtubePlayer', {
+                videoId: videoId,
+                playerVars: {
+                    autoplay: 1,
+                    rel: 0,
+                    modestbranding: 1,
+                    origin: window.location.origin
+                },
+                events: {
+                    'onReady': onPlayerReady,
+                    'onStateChange': onPlayerStateChange
+                }
+            });
+        }
+
+        // Cuando el player está listo
+        function onPlayerReady(event) {
+            playerReady = true;
+            console.log('✅ Player listo');
+            event.target.playVideo();
+        }
+
+        // Detectar cambios de estado del player
+        function onPlayerStateChange(event) {
+            // YT.PlayerState.ENDED = 0
+            if (event.data === YT.PlayerState.ENDED) {
+                console.log('⏭️ Video terminado, cargando siguiente...');
+                if (autoPlayNext && playlistId) {
+                    // Pequeña pausa antes de cargar el siguiente
+                    setTimeout(() => {
+                        loadRandomVideo();
+                    }, 1000);
+                }
+            }
+            
+            // YT.PlayerState.PLAYING = 1
+            if (event.data === YT.PlayerState.PLAYING) {
+                console.log('▶️ Reproduciendo...');
+            }
+        }
+
+        // Función para monitorear cuando termina un video (ya no se usa)
+        function startVideoMonitoring() {
+            // Esta función ya no es necesaria con la YouTube IFrame API
+        }
+
+        // Función para detener el monitoreo (ya no se usa)
+        function stopVideoMonitoring() {
+            // Esta función ya no es necesaria con la YouTube IFrame API
         }
 
         function showNotice(message) {
@@ -887,6 +974,7 @@
             const backgroundUrl = document.getElementById('backgroundUrl').value;
             const apiKeyInput = document.getElementById('apiKey').value;
             randomPlayback = document.getElementById('randomPlaylist').checked;
+            autoPlayNext = document.getElementById('autoPlayNext').checked;
             const showControls = document.getElementById('showVideoControls').checked;
             
             // Guardar API Key
