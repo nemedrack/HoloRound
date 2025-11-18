@@ -61,6 +61,14 @@
             border: none;
         }
 
+        #youtubePlayer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+
         .video-controls {
             position: absolute;
             bottom: 20px;
@@ -453,14 +461,7 @@
     <div class="container">
         <div class="left-panel">
             <div class="youtube-container">
-                <iframe 
-                    id="youtubePlayer"
-                    src=""
-                    frameborder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    allowfullscreen
-                    referrerpolicy="strict-origin-when-cross-origin">
-                </iframe>
+                <div id="youtubePlayer"></div>
                 <div class="video-controls" id="videoControls" style="display: none;">
                     <button onclick="loadRandomVideo()">🔀 Video Aleatorio</button>
                     <button onclick="nextVideo()">⏭️ Siguiente</button>
@@ -905,11 +906,33 @@
         function createYouTubePlayer(videoId) {
             // Destruir player anterior si existe
             if (player) {
-                player.destroy();
+                try {
+                    player.destroy();
+                } catch (e) {
+                    console.log('No se pudo destruir player anterior');
+                }
+            }
+
+            playerReady = false;
+
+            // Asegurarse de que el contenedor existe
+            const container = document.getElementById('youtubePlayer');
+            if (!container) {
+                console.error('Contenedor youtubePlayer no encontrado');
+                return;
+            }
+
+            // Verificar que la API de YouTube está cargada
+            if (typeof YT === 'undefined' || typeof YT.Player === 'undefined') {
+                console.error('YouTube IFrame API no está cargada aún. Reintentando...');
+                setTimeout(() => createYouTubePlayer(videoId), 500);
+                return;
             }
 
             // Crear nuevo player usando la API
             player = new YT.Player('youtubePlayer', {
+                height: '100%',
+                width: '100%',
                 videoId: videoId,
                 playerVars: {
                     autoplay: 1,
@@ -919,9 +942,23 @@
                 },
                 events: {
                     'onReady': onPlayerReady,
-                    'onStateChange': onPlayerStateChange
+                    'onStateChange': onPlayerStateChange,
+                    'onError': onPlayerError
                 }
             });
+        }
+
+        // Cuando hay un error en el player
+        function onPlayerError(event) {
+            console.error('Error en el reproductor:', event.data);
+            showNotice('❌ Error al cargar el video');
+            
+            // Intentar cargar otro video después de un error
+            if (autoPlayNext && playlistId) {
+                setTimeout(() => {
+                    loadRandomVideo();
+                }, 2000);
+            }
         }
 
         // Cuando el player está listo
@@ -1011,31 +1048,69 @@
                         document.getElementById('videoControls').style.display = 'none';
                     }
                 } else {
-                    // Es un video individual
+                    // Es un video individual - usar método tradicional con iframe
                     playlistId = null;
                     playlistVideos = [];
                     document.getElementById('videoControls').style.display = 'none';
+                    
+                    // Limpiar el player si existe
+                    if (player) {
+                        try {
+                            player.destroy();
+                        } catch (e) {}
+                        player = null;
+                        playerReady = false;
+                    }
+                    
+                    // Recrear el iframe para videos individuales
+                    const container = document.getElementById('youtubePlayer');
+                    container.innerHTML = '';
+                    const iframe = document.createElement('iframe');
+                    iframe.style.width = '100%';
+                    iframe.style.height = '100%';
+                    iframe.style.border = 'none';
+                    iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
+                    iframe.setAttribute('allowfullscreen', '');
                     
                     if (youtubeUrl.includes('youtube.com/watch')) {
                         const videoId = youtubeUrl.split('v=')[1]?.split('&')[0];
                         if (videoId) {
                             embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&autoplay=1`;
+                            iframe.src = embedUrl;
                         }
                     } else if (youtubeUrl.includes('youtu.be/')) {
                         const videoId = youtubeUrl.split('youtu.be/')[1]?.split('?')[0];
                         if (videoId) {
                             embedUrl = `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&modestbranding=1&autoplay=1`;
+                            iframe.src = embedUrl;
                         }
                     } else if (youtubeUrl.includes('youtube.com/embed/')) {
                         embedUrl = youtubeUrl.replace('youtube.com', 'youtube-nocookie.com');
                         if (!embedUrl.includes('?')) {
                             embedUrl += '?rel=0&modestbranding=1&autoplay=1';
                         }
+                        iframe.src = embedUrl;
+                    }
+                    
+                    if (iframe.src) {
+                        container.appendChild(iframe);
+                        document.getElementById('videoError').style.display = 'none';
+                        showNotice('Video actualizado correctamente');
                     }
                 }
                 
-                if (embedUrl) {
-                    document.getElementById('youtubePlayer').src = embedUrl;
+                if (embedUrl && !listId) {
+                    // Este código solo se ejecuta para playlists sin API
+                    const container = document.getElementById('youtubePlayer');
+                    container.innerHTML = '';
+                    const iframe = document.createElement('iframe');
+                    iframe.style.width = '100%';
+                    iframe.style.height = '100%';
+                    iframe.style.border = 'none';
+                    iframe.setAttribute('allow', 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share');
+                    iframe.setAttribute('allowfullscreen', '');
+                    iframe.src = embedUrl;
+                    container.appendChild(iframe);
                     document.getElementById('videoError').style.display = 'none';
                     showNotice('Video actualizado correctamente');
                 }
