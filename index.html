@@ -507,6 +507,14 @@
         <div class="modal-content">
             <h2>Configuración</h2>
             <div class="form-group">
+                <label>YouTube API Key (Requerida para playlists aleatorias)</label>
+                <input type="text" id="apiKey" placeholder="AIzaSyXXXXXXXXXXXXXXXXXXXXXX">
+                <p class="info-text">
+                    📌 Obtén tu API Key gratis en: <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a><br>
+                    Habilita "YouTube Data API v3" y crea una clave de API
+                </p>
+            </div>
+            <div class="form-group">
                 <label>URL de YouTube (Video o Playlist)</label>
                 <input type="text" id="youtubeUrl" placeholder="https://youtube.com/watch?v=... o https://youtube.com/playlist?list=...">
                 <p class="info-text">
@@ -515,7 +523,7 @@
             </div>
             <div class="form-group-checkbox">
                 <input type="checkbox" id="randomPlaylist" checked>
-                <label for="randomPlaylist" style="margin: 0;">Reproducción aleatoria de playlist</label>
+                <label for="randomPlaylist" style="margin: 0;">Reproducción aleatoria de playlist (requiere API Key)</label>
             </div>
             <div class="form-group-checkbox">
                 <input type="checkbox" id="showVideoControls" checked>
@@ -559,6 +567,8 @@
         let playlistVideos = [];
         let currentVideoIndex = 0;
         let randomPlayback = true;
+        let youtubeApiKey = '';
+        let usedVideoIndices = [];
 
         const DEFAULT_BG_URL = "https://i.imgur.com/9hEct8V.png";
 
@@ -753,34 +763,114 @@
             return match ? match[1] : null;
         }
 
+        // Función para obtener todos los videos de una playlist usando la API
+        async function fetchPlaylistVideos(playlistId, apiKey) {
+            if (!apiKey) {
+                alert('Por favor ingresa tu YouTube API Key en la configuración');
+                return [];
+            }
+
+            const videos = [];
+            let nextPageToken = '';
+            
+            try {
+                do {
+                    const url = `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${playlistId}&key=${apiKey}${nextPageToken ? '&pageToken=' + nextPageToken : ''}`;
+                    
+                    const response = await fetch(url);
+                    const data = await response.json();
+                    
+                    if (data.error) {
+                        alert('Error con la API Key: ' + data.error.message + '\n\nVerifica que:\n1. La API Key sea correcta\n2. YouTube Data API v3 esté habilitada\n3. No hayas excedido la cuota diaria');
+                        return [];
+                    }
+                    
+                    if (data.items) {
+                        data.items.forEach(item => {
+                            if (item.snippet && item.snippet.resourceId) {
+                                videos.push({
+                                    videoId: item.snippet.resourceId.videoId,
+                                    title: item.snippet.title,
+                                    thumbnail: item.snippet.thumbnails?.default?.url
+                                });
+                            }
+                        });
+                    }
+                    
+                    nextPageToken = data.nextPageToken || '';
+                } while (nextPageToken);
+                
+                console.log(`✅ Playlist cargada: ${videos.length} videos encontrados`);
+                return videos;
+            } catch (error) {
+                alert('Error al cargar la playlist: ' + error.message);
+                console.error('Error:', error);
+                return [];
+            }
+        }
+
         // Función para cargar un video aleatorio de la playlist
-        function loadRandomVideo() {
+        async function loadRandomVideo() {
             if (!playlistId) {
                 alert('No hay una playlist cargada');
                 return;
             }
 
-            // Generar índice aleatorio
-            const randomIndex = Math.floor(Math.random() * 50); // YouTube permite hasta 50 videos en embed
+            if (playlistVideos.length === 0) {
+                showNotice('Cargando lista de videos...');
+                playlistVideos = await fetchPlaylistVideos(playlistId, youtubeApiKey);
+                
+                if (playlistVideos.length === 0) {
+                    return;
+                }
+            }
+
+            // Reiniciar si ya se usaron todos los videos
+            if (usedVideoIndices.length >= playlistVideos.length) {
+                usedVideoIndices = [];
+                showNotice('Reiniciando lista...');
+            }
+
+            // Seleccionar video aleatorio que no se haya usado
+            let randomIndex;
+            do {
+                randomIndex = Math.floor(Math.random() * playlistVideos.length);
+            } while (usedVideoIndices.includes(randomIndex) && usedVideoIndices.length < playlistVideos.length);
+
+            usedVideoIndices.push(randomIndex);
+            const video = playlistVideos[randomIndex];
             
-            const embedUrl = `https://www.youtube-nocookie.com/embed/videoseries?list=${playlistId}&index=${randomIndex + 1}&rel=0&modestbranding=1&autoplay=1`;
+            const embedUrl = `https://www.youtube-nocookie.com/embed/${video.videoId}?rel=0&modestbranding=1&autoplay=1`;
             document.getElementById('youtubePlayer').src = embedUrl;
             
-            showNotice('Cargando video aleatorio...');
+            showNotice(`🎵 ${video.title.substring(0, 50)}...`);
+            console.log(`Reproduciendo: ${video.title}`);
         }
 
         // Función para cargar el siguiente video
-        function nextVideo() {
+        async function nextVideo() {
             if (!playlistId) {
                 alert('No hay una playlist cargada');
                 return;
             }
 
-            currentVideoIndex++;
-            const embedUrl = `https://www.youtube-nocookie.com/embed/videoseries?list=${playlistId}&index=${currentVideoIndex + 1}&rel=0&modestbranding=1&autoplay=1`;
+            if (playlistVideos.length === 0) {
+                showNotice('Cargando lista de videos...');
+                playlistVideos = await fetchPlaylistVideos(playlistId, youtubeApiKey);
+                
+                if (playlistVideos.length === 0) {
+                    return;
+                }
+            }
+
+            currentVideoIndex = (currentVideoIndex + 1) % playlistVideos.length;
+            const video = playlistVideos[currentVideoIndex];
+            
+            const embedUrl = `https://www.youtube-nocookie.com/embed/${video.videoId}?rel=0&modestbranding=1&autoplay=1`;
             document.getElementById('youtubePlayer').src = embedUrl;
             
-            showNotice('Siguiente video...');
+            showNotice(`🎵 ${video.title.substring(0, 50)}...`);
+            console.log(`Reproduciendo: ${video.title}`);
         }
 
         function showNotice(message) {
@@ -795,8 +885,14 @@
         function saveSettings() {
             const youtubeUrl = document.getElementById('youtubeUrl').value;
             const backgroundUrl = document.getElementById('backgroundUrl').value;
+            const apiKeyInput = document.getElementById('apiKey').value;
             randomPlayback = document.getElementById('randomPlaylist').checked;
             const showControls = document.getElementById('showVideoControls').checked;
+            
+            // Guardar API Key
+            if (apiKeyInput) {
+                youtubeApiKey = apiKeyInput.trim();
+            }
             
             if (youtubeUrl) {
                 currentYoutubeUrl = youtubeUrl;
@@ -808,22 +904,28 @@
                 if (listId) {
                     // Es una playlist
                     playlistId = listId;
+                    playlistVideos = []; // Resetear lista
+                    usedVideoIndices = []; // Resetear índices usados
                     currentVideoIndex = 0;
                     
-                    if (randomPlayback) {
-                        // Cargar video aleatorio
-                        const randomIndex = Math.floor(Math.random() * 50);
-                        embedUrl = `https://www.youtube-nocookie.com/embed/videoseries?list=${listId}&index=${randomIndex + 1}&rel=0&modestbranding=1&autoplay=1`;
+                    if (randomPlayback && youtubeApiKey) {
+                        // Cargar video aleatorio usando la API
+                        document.getElementById('videoControls').style.display = showControls ? 'flex' : 'none';
+                        closeSettings();
+                        loadRandomVideo(); // Llamar a la función async
+                        return;
+                    } else if (randomPlayback && !youtubeApiKey) {
+                        alert('⚠️ Para reproducción aleatoria necesitas ingresar tu YouTube API Key');
+                        return;
                     } else {
-                        // Cargar desde el inicio
+                        // Cargar playlist normal sin API
                         embedUrl = `https://www.youtube-nocookie.com/embed/videoseries?list=${listId}&rel=0&modestbranding=1&autoplay=1`;
+                        document.getElementById('videoControls').style.display = 'none';
                     }
-                    
-                    // Mostrar controles de video
-                    document.getElementById('videoControls').style.display = showControls ? 'flex' : 'none';
                 } else {
                     // Es un video individual
                     playlistId = null;
+                    playlistVideos = [];
                     document.getElementById('videoControls').style.display = 'none';
                     
                     if (youtubeUrl.includes('youtube.com/watch')) {
