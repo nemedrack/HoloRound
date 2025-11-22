@@ -790,7 +790,9 @@
             }
 
             const videos = [];
+            const videoIds = new Set(); // Para detectar duplicados
             let nextPageToken = '';
+            let duplicatesCount = 0;
             
             try {
                 do {
@@ -807,11 +809,20 @@
                     if (data.items) {
                         data.items.forEach(item => {
                             if (item.snippet && item.snippet.resourceId) {
-                                videos.push({
-                                    videoId: item.snippet.resourceId.videoId,
-                                    title: item.snippet.title,
-                                    thumbnail: item.snippet.thumbnails?.default?.url
-                                });
+                                const videoId = item.snippet.resourceId.videoId;
+                                
+                                // Solo agregar si no es duplicado
+                                if (!videoIds.has(videoId)) {
+                                    videoIds.add(videoId);
+                                    videos.push({
+                                        videoId: videoId,
+                                        title: item.snippet.title,
+                                        thumbnail: item.snippet.thumbnails?.default?.url
+                                    });
+                                } else {
+                                    duplicatesCount++;
+                                    console.log(`⚠️ Video duplicado omitido: ${item.snippet.title}`);
+                                }
                             }
                         });
                     }
@@ -819,7 +830,11 @@
                     nextPageToken = data.nextPageToken || '';
                 } while (nextPageToken);
                 
-                console.log(`✅ Playlist cargada: ${videos.length} videos encontrados`);
+                console.log(`✅ Playlist cargada: ${videos.length} videos únicos encontrados`);
+                if (duplicatesCount > 0) {
+                    console.log(`🔄 ${duplicatesCount} duplicados eliminados`);
+                    showNotice(`✅ ${videos.length} videos únicos (${duplicatesCount} duplicados eliminados)`);
+                }
                 return videos;
             } catch (error) {
                 alert('Error al cargar la playlist: ' + error.message);
