@@ -572,7 +572,7 @@
         let playlistVideos = [];
         let currentVideoIndex = 0;
         let randomPlayback = true;
-        let youtubeApiKey = '';
+        let youtubeApiKey = window.YOUTUBE_CONFIG?.apiKey || '';
         let usedVideoIndices = [];
         let autoPlayNext = true; // Reproducción automática continua
         let player = null; // YouTube Player object
@@ -599,6 +599,14 @@
                     rightPanel.style.backgroundSize = 'cover';
                     rightPanel.style.backgroundPosition = 'center';
                     rightPanel.style.backgroundRepeat = 'no-repeat';
+                }
+
+                if (window.YOUTUBE_CONFIG?.apiKey) {
+                    const apiKeyInput = document.getElementById('apiKey');
+                    if (apiKeyInput && !apiKeyInput.value) {
+                        apiKeyInput.value = window.YOUTUBE_CONFIG.apiKey;
+                        youtubeApiKey = window.YOUTUBE_CONFIG.apiKey;
+                    }
                 }
             }
         });
