@@ -507,6 +507,9 @@
     <div class="modal" id="settingsModal">
         <div class="modal-content">
             <h2>Configuración</h2>
+            
+            <div id="apiStatus" class="api-status" style="display: none;"></div>
+            
             <div class="form-group">
                 <label>YouTube API Key (Requerida para playlists aleatorias)</label>
                 <input type="text" id="apiKey" placeholder="AIzaSyXXXXXXXXXXXXXXXXXXXXXX">
@@ -764,6 +767,7 @@
 
         function openSettings() {
             document.getElementById('settingsModal').classList.add('active');
+            checkApiKeyStatus(); // Actualizar estado al abrir
         }
 
         function closeSettings() {
