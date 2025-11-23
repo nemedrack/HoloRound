@@ -16,39 +16,49 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       
-      - name: Generate config.js
-        env:
-          API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
+      - name: Show template content
         run: |
-          echo "Generando config.js desde template..."
-          sed "s/\${YOUTUBE_API_KEY}/${API_KEY}/g" config.template.js > config.js
+          echo "=== Contenido de config.template.js ==="
+          cat config.template.js
+          echo "======================================"
+      
+      - name: Generate config.js
+        run: |
+          echo "Generando config.js..."
+          cat config.template.js | sed "s/\${YOUTUBE_API_KEY}/${{ secrets.YOUTUBE_API_KEY }}/g" > config.js
           echo "✅ config.js generado"
       
-      - name: Verify config.js
+      - name: Verify config.js was created
         run: |
+          echo "=== Verificando config.js ==="
           if [ -f config.js ]; then
             echo "✅ config.js existe"
-            echo "Primeras 2 líneas:"
-            head -n 2 config.js
+            echo "Tamaño: $(wc -c < config.js) bytes"
+            echo "Contenido:"
+            cat config.js
           else
-            echo "❌ config.js no fue creado"
+            echo "❌ ERROR: config.js NO existe"
             exit 1
           fi
       
-      - name: Remove template from deploy
+      - name: Prepare files for deployment
         run: |
-          rm config.template.js
-          echo "✅ config.template.js eliminado para deploy"
-      
-      - name: List files to deploy
-        run: |
-          echo "Archivos finales para deploy:"
-          ls -lah *.js *.html
+          echo "=== Preparando archivos ==="
+          # Crear directorio temporal para deploy
+          mkdir -p deploy_files
+          
+          # Copiar archivos necesarios
+          cp index.html deploy_files/
+          cp config.js deploy_files/
+          
+          # Verificar qué hay en deploy_files
+          echo "Archivos en deploy_files:"
+          ls -lah deploy_files/
       
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./
+          publish_dir: ./deploy_files
           publish_branch: gh-pages
           force_orphan: true
