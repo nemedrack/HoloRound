@@ -2,7 +2,7 @@ name: Deploy to GitHub Pages
 
 on:
   push:
-    branches: [ main ]  # Cambia a 'master' si tu rama principal se llama así
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:
@@ -16,27 +16,34 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
       
-      - name: Create config.js from template
+      - name: Generate config.js
+        env:
+          API_KEY: ${{ secrets.YOUTUBE_API_KEY }}
         run: |
-          echo "Generando config.js..."
-          cat config.template.js | sed "s/\${YOUTUBE_API_KEY}/${{ secrets.YOUTUBE_API_KEY }}/g" > config.js
-          echo "✅ config.js creado"
-          
-      - name: Verify config.js exists
+          echo "Generando config.js desde template..."
+          sed "s/\${YOUTUBE_API_KEY}/${API_KEY}/g" config.template.js > config.js
+          echo "✅ config.js generado"
+      
+      - name: Verify config.js
         run: |
           if [ -f config.js ]; then
             echo "✅ config.js existe"
-            echo "Contenido (primeras 2 líneas):"
+            echo "Primeras 2 líneas:"
             head -n 2 config.js
           else
-            echo "❌ ERROR: config.js no fue creado"
+            echo "❌ config.js no fue creado"
             exit 1
           fi
       
-      - name: List all files to deploy
+      - name: Remove template from deploy
         run: |
-          echo "Archivos que se desplegarán:"
-          ls -lah
+          rm config.template.js
+          echo "✅ config.template.js eliminado para deploy"
+      
+      - name: List files to deploy
+        run: |
+          echo "Archivos finales para deploy:"
+          ls -lah *.js *.html
       
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
