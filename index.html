@@ -415,25 +415,6 @@
             line-height: 1.4;
         }
 
-        .api-status {
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            font-size: 13px;
-        }
-
-        .api-status.success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .api-status.error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-        }
-
         .modal-buttons {
             display: flex;
             gap: 10px;
@@ -530,6 +511,14 @@
             <div id="apiStatus" class="api-status" style="display: none;"></div>
             
             <div class="form-group">
+                <label>YouTube API Key (Requerida para playlists aleatorias)</label>
+                <input type="text" id="apiKey" placeholder="AIzaSyXXXXXXXXXXXXXXXXXXXXXX">
+                <p class="info-text">
+                    📌 Obtén tu API Key gratis en: <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a><br>
+                    Habilita "YouTube Data API v3" y crea una clave de API
+                </p>
+            </div>
+            <div class="form-group">
                 <label>URL de YouTube (Video o Playlist)</label>
                 <input type="text" id="youtubeUrl" placeholder="https://youtube.com/watch?v=... o https://youtube.com/playlist?list=...">
                 <p class="info-text">
@@ -538,7 +527,7 @@
             </div>
             <div class="form-group-checkbox">
                 <input type="checkbox" id="randomPlaylist" checked>
-                <label for="randomPlaylist" style="margin: 0;">Reproducción aleatoria de playlist</label>
+                <label for="randomPlaylist" style="margin: 0;">Reproducción aleatoria de playlist (requiere API Key)</label>
             </div>
             <div class="form-group-checkbox">
                 <input type="checkbox" id="autoPlayNext" checked>
@@ -571,9 +560,6 @@
         </div>
     </div>
 
-    <!-- Cargar configuración desde archivo externo (generado por GitHub Actions) -->
-    <script src="config.js"></script>
-
     <script>
         let time = 35 * 60;
         let originalTime = 35 * 60;
@@ -589,13 +575,13 @@
         let playlistVideos = [];
         let currentVideoIndex = 0;
         let randomPlayback = true;
-        let youtubeApiKey = '';
+        let youtubeApiKey = window.YOUTUBE_CONFIG?.apiKey || '';
         let usedVideoIndices = [];
-        let autoPlayNext = true;
-        let player = null;
+        let autoPlayNext = true; // Reproducción automática continua
+        let player = null; // YouTube Player object
         let playerReady = false;
 
-        const DEFAULT_BG_URL = "https://i.imgur.com/LPlDkrk.png";
+        const DEFAULT_BG_URL = "https://i.imgur.com/9hEct8V.png";
 
         // Cargar YouTube IFrame Player API
         let tag = document.createElement('script');
@@ -603,6 +589,7 @@
         let firstScriptTag = document.getElementsByTagName('script')[0];
         firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
 
+        // Esta función es llamada automáticamente por la API de YouTube
         window.onYouTubeIframeAPIReady = function() {
             console.log('✅ YouTube IFrame API cargada');
         };
@@ -616,28 +603,16 @@
                     rightPanel.style.backgroundPosition = 'center';
                     rightPanel.style.backgroundRepeat = 'no-repeat';
                 }
-            }
 
-            // Cargar API Key desde configuración
-            checkApiKeyStatus();
+                if (window.YOUTUBE_CONFIG?.apiKey) {
+                    const apiKeyInput = document.getElementById('apiKey');
+                    if (apiKeyInput && !apiKeyInput.value) {
+                        apiKeyInput.value = window.YOUTUBE_CONFIG.apiKey;
+                        youtubeApiKey = window.YOUTUBE_CONFIG.apiKey;
+                    }
+                }
+            }
         });
-
-        function checkApiKeyStatus() {
-            const apiStatus = document.getElementById('apiStatus');
-            
-            if (window.YOUTUBE_CONFIG && window.YOUTUBE_CONFIG.apiKey) {
-                youtubeApiKey = window.YOUTUBE_CONFIG.apiKey;
-                apiStatus.className = 'api-status success';
-                apiStatus.textContent = '✅ YouTube API Key configurada correctamente';
-                apiStatus.style.display = 'block';
-                console.log('✅ API Key cargada desde configuración');
-            } else {
-                apiStatus.className = 'api-status error';
-                apiStatus.textContent = '❌ YouTube API Key no configurada. Las playlists aleatorias no funcionarán.';
-                apiStatus.style.display = 'block';
-                console.warn('⚠️ No se encontró API Key en la configuración');
-            }
-        }
 
         function formatTime(seconds) {
             const mins = Math.floor(seconds / 60);
@@ -813,19 +788,21 @@
             document.getElementById('videoError').style.display = 'block';
         }
 
+        // Función para extraer el ID de la playlist
         function extractPlaylistId(url) {
             const match = url.match(/[?&]list=([^&]+)/);
             return match ? match[1] : null;
         }
 
+        // Función para obtener todos los videos de una playlist usando la API
         async function fetchPlaylistVideos(playlistId, apiKey) {
             if (!apiKey) {
-                alert('YouTube API Key no configurada. Por favor contacta al administrador.');
+                alert('Por favor ingresa tu YouTube API Key en la configuración');
                 return [];
             }
 
             const videos = [];
-            const videoIds = new Set();
+            const videoIds = new Set(); // Para detectar duplicados
             let nextPageToken = '';
             let duplicatesCount = 0;
             
@@ -837,7 +814,7 @@
                     const data = await response.json();
                     
                     if (data.error) {
-                        alert('Error con la API Key: ' + data.error.message + '\n\nPor favor contacta al administrador.');
+                        alert('Error con la API Key: ' + data.error.message + '\n\nVerifica que:\n1. La API Key sea correcta\n2. YouTube Data API v3 esté habilitada\n3. No hayas excedido la cuota diaria');
                         return [];
                     }
                     
@@ -846,6 +823,7 @@
                             if (item.snippet && item.snippet.resourceId) {
                                 const videoId = item.snippet.resourceId.videoId;
                                 
+                                // Solo agregar si no es duplicado
                                 if (!videoIds.has(videoId)) {
                                     videoIds.add(videoId);
                                     videos.push({
@@ -877,6 +855,7 @@
             }
         }
 
+        // Función para cargar un video aleatorio de la playlist
         async function loadRandomVideo() {
             if (!playlistId) {
                 alert('No hay una playlist cargada');
@@ -892,11 +871,13 @@
                 }
             }
 
+            // Reiniciar si ya se usaron todos los videos
             if (usedVideoIndices.length >= playlistVideos.length) {
                 usedVideoIndices = [];
                 showNotice('🔄 Reiniciando lista...');
             }
 
+            // Seleccionar video aleatorio que no se haya usado
             let randomIndex;
             do {
                 randomIndex = Math.floor(Math.random() * playlistVideos.length);
@@ -908,13 +889,16 @@
             showNotice(`🎵 ${video.title.substring(0, 50)}...`);
             console.log(`Reproduciendo: ${video.title}`);
             
+            // Si el player ya existe, solo cambiar el video
             if (player && playerReady) {
                 player.loadVideoById(video.videoId);
             } else {
+                // Crear nuevo player
                 createYouTubePlayer(video.videoId);
             }
         }
 
+        // Función para cargar el siguiente video
         async function nextVideo() {
             if (!playlistId) {
                 alert('No hay una playlist cargada');
@@ -936,14 +920,18 @@
             showNotice(`🎵 ${video.title.substring(0, 50)}...`);
             console.log(`Reproduciendo: ${video.title}`);
             
+            // Si el player ya existe, solo cambiar el video
             if (player && playerReady) {
                 player.loadVideoById(video.videoId);
             } else {
+                // Crear nuevo player
                 createYouTubePlayer(video.videoId);
             }
         }
 
+        // Función para crear el reproductor de YouTube
         function createYouTubePlayer(videoId) {
+            // Destruir player anterior si existe
             if (player) {
                 try {
                     player.destroy();
@@ -954,18 +942,21 @@
 
             playerReady = false;
 
+            // Asegurarse de que el contenedor existe
             const container = document.getElementById('youtubePlayer');
             if (!container) {
                 console.error('Contenedor youtubePlayer no encontrado');
                 return;
             }
 
+            // Verificar que la API de YouTube está cargada
             if (typeof YT === 'undefined' || typeof YT.Player === 'undefined') {
                 console.error('YouTube IFrame API no está cargada aún. Reintentando...');
                 setTimeout(() => createYouTubePlayer(videoId), 500);
                 return;
             }
 
+            // Crear nuevo player usando la API
             player = new YT.Player('youtubePlayer', {
                 height: '100%',
                 width: '100%',
@@ -984,10 +975,12 @@
             });
         }
 
+        // Cuando hay un error en el player
         function onPlayerError(event) {
             console.error('Error en el reproductor:', event.data);
             showNotice('❌ Error al cargar el video');
             
+            // Intentar cargar otro video después de un error
             if (autoPlayNext && playlistId) {
                 setTimeout(() => {
                     loadRandomVideo();
@@ -995,25 +988,40 @@
             }
         }
 
+        // Cuando el player está listo
         function onPlayerReady(event) {
             playerReady = true;
             console.log('✅ Player listo');
             event.target.playVideo();
         }
 
+        // Detectar cambios de estado del player
         function onPlayerStateChange(event) {
+            // YT.PlayerState.ENDED = 0
             if (event.data === YT.PlayerState.ENDED) {
                 console.log('⏭️ Video terminado, cargando siguiente...');
                 if (autoPlayNext && playlistId) {
+                    // Pequeña pausa antes de cargar el siguiente
                     setTimeout(() => {
                         loadRandomVideo();
                     }, 1000);
                 }
             }
             
+            // YT.PlayerState.PLAYING = 1
             if (event.data === YT.PlayerState.PLAYING) {
                 console.log('▶️ Reproduciendo...');
             }
+        }
+
+        // Función para monitorear cuando termina un video (ya no se usa)
+        function startVideoMonitoring() {
+            // Esta función ya no es necesaria con la YouTube IFrame API
+        }
+
+        // Función para detener el monitoreo (ya no se usa)
+        function stopVideoMonitoring() {
+            // Esta función ya no es necesaria con la YouTube IFrame API
         }
 
         function showNotice(message) {
@@ -1028,39 +1036,51 @@
         function saveSettings() {
             const youtubeUrl = document.getElementById('youtubeUrl').value;
             const backgroundUrl = document.getElementById('backgroundUrl').value;
+            const apiKeyInput = document.getElementById('apiKey').value;
             randomPlayback = document.getElementById('randomPlaylist').checked;
             autoPlayNext = document.getElementById('autoPlayNext').checked;
             const showControls = document.getElementById('showVideoControls').checked;
+            
+            // Guardar API Key
+            if (apiKeyInput) {
+                youtubeApiKey = apiKeyInput.trim();
+            }
             
             if (youtubeUrl) {
                 currentYoutubeUrl = youtubeUrl;
                 let embedUrl = '';
                 
+                // Detectar si es una playlist
                 const listId = extractPlaylistId(youtubeUrl);
                 
                 if (listId) {
+                    // Es una playlist
                     playlistId = listId;
-                    playlistVideos = [];
-                    usedVideoIndices = [];
+                    playlistVideos = []; // Resetear lista
+                    usedVideoIndices = []; // Resetear índices usados
                     currentVideoIndex = 0;
                     
                     if (randomPlayback && youtubeApiKey) {
+                        // Cargar video aleatorio usando la API
                         document.getElementById('videoControls').style.display = showControls ? 'flex' : 'none';
                         closeSettings();
-                        loadRandomVideo();
+                        loadRandomVideo(); // Llamar a la función async
                         return;
                     } else if (randomPlayback && !youtubeApiKey) {
-                        alert('⚠️ YouTube API Key no configurada. Por favor contacta al administrador.');
+                        alert('⚠️ Para reproducción aleatoria necesitas ingresar tu YouTube API Key');
                         return;
                     } else {
+                        // Cargar playlist normal sin API
                         embedUrl = `https://www.youtube-nocookie.com/embed/videoseries?list=${listId}&rel=0&modestbranding=1&autoplay=1`;
                         document.getElementById('videoControls').style.display = 'none';
                     }
                 } else {
+                    // Es un video individual - usar método tradicional con iframe
                     playlistId = null;
                     playlistVideos = [];
                     document.getElementById('videoControls').style.display = 'none';
                     
+                    // Limpiar el player si existe
                     if (player) {
                         try {
                             player.destroy();
@@ -1069,6 +1089,7 @@
                         playerReady = false;
                     }
                     
+                    // Recrear el iframe para videos individuales
                     const container = document.getElementById('youtubePlayer');
                     container.innerHTML = '';
                     const iframe = document.createElement('iframe');
@@ -1106,6 +1127,7 @@
                 }
                 
                 if (embedUrl && !listId) {
+                    // Este código solo se ejecuta para playlists sin API
                     const container = document.getElementById('youtubePlayer');
                     container.innerHTML = '';
                     const iframe = document.createElement('iframe');
