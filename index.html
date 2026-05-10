@@ -595,7 +595,7 @@
         let player = null;
         let playerReady = false;
 
-        const DEFAULT_BG_URL = "https://i.imgur.com/RhKOU6t.png";
+        const DEFAULT_BG_URL = "https://i.imgur.com/12CJyqG.png";
         // Función para cargar imagen de fondo desde archivo a
 
         // Cargar YouTube IFrame Player API
@@ -1140,11 +1140,98 @@
             }
         }
 
+        // Web Audio API: alarma sutil estilo campana (3 toques descendentes)
+        let audioCtx = null;
+        let previousVolume = null;
+
+        function getAudioContext() {
+            if (!audioCtx) {
+                const Ctx = window.AudioContext || window.webkitAudioContext;
+                if (Ctx) {
+                    audioCtx = new Ctx();
+                }
+            }
+            return audioCtx;
+        }
+
+        function playBell(ctx, frequency, startTime, duration) {
+            // Oscilador principal (tono fundamental)
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(frequency, startTime);
+
+            // Envolvente tipo campana: ataque rápido, decaimiento suave
+            gain.gain.setValueAtTime(0, startTime);
+            gain.gain.linearRampToValueAtTime(0.25, startTime + 0.02);
+            gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
+
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(startTime);
+            osc.stop(startTime + duration);
+
+            // Armónico (le da carácter de campana)
+            const osc2 = ctx.createOscillator();
+            const gain2 = ctx.createGain();
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(frequency * 2, startTime);
+            gain2.gain.setValueAtTime(0, startTime);
+            gain2.gain.linearRampToValueAtTime(0.08, startTime + 0.02);
+            gain2.gain.exponentialRampToValueAtTime(0.0001, startTime + duration * 0.7);
+            osc2.connect(gain2);
+            gain2.connect(ctx.destination);
+            osc2.start(startTime);
+            osc2.stop(startTime + duration * 0.7);
+        }
+
+        function playAlarm() {
+            try {
+                const ctx = getAudioContext();
+                if (!ctx) return;
+
+                // Algunos navegadores requieren reanudar el contexto
+                if (ctx.state === 'suspended') {
+                    ctx.resume();
+                }
+
+                const now = ctx.currentTime;
+                // Tres campanadas descendentes y espaciadas: sutil pero clara
+                playBell(ctx, 880, now, 1.2);          // La5
+                playBell(ctx, 698.46, now + 0.45, 1.2); // Fa5
+                playBell(ctx, 523.25, now + 0.9, 1.6);  // Do5
+            } catch (e) {
+                console.warn('No se pudo reproducir la alarma:', e);
+            }
+        }
+
+        function duckYoutubeVolume() {
+            try {
+                if (player && playerReady && typeof player.getVolume === 'function') {
+                    previousVolume = player.getVolume();
+                    player.setVolume(Math.max(10, Math.floor(previousVolume * 0.25)));
+                }
+            } catch (e) {
+                // Silencioso: si falla, no bloqueamos la alarma
+            }
+        }
+
+        function restoreYoutubeVolume() {
+            try {
+                if (player && playerReady && previousVolume !== null && typeof player.setVolume === 'function') {
+                    player.setVolume(previousVolume);
+                    previousVolume = null;
+                }
+            } catch (e) {}
+        }
+
         function showTimeUpModal() {
             const modal = document.getElementById('timeUpModal');
             if (modal) {
                 modal.classList.add('show');
             }
+            duckYoutubeVolume();
+            playAlarm();
         }
 
         function closeTimeUpModal() {
@@ -1152,6 +1239,7 @@
             if (modal) {
                 modal.classList.remove('show');
             }
+            restoreYoutubeVolume();
         }
     </script>
 </body>
