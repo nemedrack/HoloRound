@@ -595,7 +595,7 @@
         let player = null;
         let playerReady = false;
 
-        const DEFAULT_BG_URL = "https://i.imgur.com/12CJyqG.png";
+        const DEFAULT_BG_URL = "https://en.hololive-official-cardgame.com/wp-content/uploads/2026/05/ec_hbp06_main.jpg";
         // Función para cargar imagen de fondo desde archivo a
 
         // Cargar YouTube IFrame Player API
@@ -1158,29 +1158,35 @@
             // Oscilador principal (tono fundamental)
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
+            const masterGain = ctx.createGain();
             osc.type = 'sine';
             osc.frequency.setValueAtTime(frequency, startTime);
 
             // Envolvente tipo campana: ataque rápido, decaimiento suave
+            masterGain.gain.setValueAtTime(0.95, startTime);
             gain.gain.setValueAtTime(0, startTime);
-            gain.gain.linearRampToValueAtTime(0.25, startTime + 0.02);
+            gain.gain.linearRampToValueAtTime(0.95, startTime + 0.02);
             gain.gain.exponentialRampToValueAtTime(0.0001, startTime + duration);
 
             osc.connect(gain);
-            gain.connect(ctx.destination);
+            gain.connect(masterGain);
+            masterGain.connect(ctx.destination);
             osc.start(startTime);
             osc.stop(startTime + duration);
 
             // Armónico (le da carácter de campana)
             const osc2 = ctx.createOscillator();
             const gain2 = ctx.createGain();
+            const masterGain2 = ctx.createGain();
             osc2.type = 'sine';
             osc2.frequency.setValueAtTime(frequency * 2, startTime);
+            masterGain2.gain.setValueAtTime(0.95, startTime);
             gain2.gain.setValueAtTime(0, startTime);
-            gain2.gain.linearRampToValueAtTime(0.08, startTime + 0.02);
+            gain2.gain.linearRampToValueAtTime(0.32, startTime + 0.02);
             gain2.gain.exponentialRampToValueAtTime(0.0001, startTime + duration * 0.7);
             osc2.connect(gain2);
-            gain2.connect(ctx.destination);
+            gain2.connect(masterGain2);
+            masterGain2.connect(ctx.destination);
             osc2.start(startTime);
             osc2.stop(startTime + duration * 0.7);
         }
